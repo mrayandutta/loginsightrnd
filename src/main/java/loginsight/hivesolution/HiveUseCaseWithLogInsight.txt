@@ -1,0 +1,92 @@
+Create Hive Tables
+===================
+create database if not exists loginsight;
+use loginsight;
+!hdfs dfs -mkdir /staging;
+!hdfs dfs -ls /loginsight/;
+!hdfs dfs -cp /loginsight/startrack12MB.txt /staging/;
+!hdfs dfs -ls /staging/;
+export HIVE_AUX_JARS_PATH="$HIVE_HOME/lib/hive-common-0.14.0.jar"
+echo $HIVE_AUX_JARS_PATH
+Create Hive Table for weblogs
+=============================
+CREATE EXTERNAL TABLE weblog (
+  ts STRING,
+  user STRING,
+  reportname STRING,
+  reportexecutiontime STRING,
+  ip STRING
+  )
+ROW FORMAT SERDE 'org.apache.hadoop.hive.contrib.serde2.RegexSerDe'
+WITH SERDEPROPERTIES (
+  "input.regex" = "(\\d{2}-\\d{2}-\\d{4}:\\d{2}:\\d{2}:\\d{2})\\s(\\w+)\\s(\\w+)\\s(\\w+)\\s(\\d{3}.\\d{3}.\\d{2}.\\d{2})",
+  "output.format.string" = "%1$s %2$s %3$s %4$s %5$s"
+)
+STORED AS TEXTFILE
+LOCATION 'hdfs:/staging/';
+
+CREATE EXTERNAL TABLE logs (
+  ts STRING,
+  user STRING,
+  reportname STRING,
+  reportexecutiontime STRING,
+  ip STRING
+  )
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.RegexSerDe'
+WITH SERDEPROPERTIES (
+  "input.regex" = "(\\d{2}-\\d{2}-\\d{4}:\\d{2}:\\d{2}:\\d{2})\\s(\\w+)\\s(\\w+)\\s(\\w+)\\s(\\d{3}.\\d{3}.\\d{2}.\\d{2})",
+  "output.format.string" = "%1$s %2$s %3$s %4$s %5$s"
+)
+STORED AS TEXTFILE
+LOCATION 'hdfs:/staging/';
+
+org.apache.hadoop.hive.serde2.RegexSerDe vs org.apache.hadoop.hive.contrib.serde2.RegexSerDe
+export HIVE_AUX_JARS_PATH="$HIVE_HOME/lib/hive-common-0.14.0.jar"
+java.io.FileNotFoundException: File 
+file:/usr/local/hive/apache-hive-0.14.0-bin/lib/hive-common-0.14.0.jar does not exist
+export HIVE_AUX_JARS_PATH=/usr/local/hive/apache-hive-0.14.0-bin/lib/hive-common-0.14.0.jar
+
+
+select count(*) from weblog;
+CREATE EXTERNAL TABLE logs1 (user STRING,report STRING,executiontime int ,day int , month int, year int , ip STRING ) ROW FORMAT DELIMITED 
+FIELDS TERMINATED BY ',' LOCATION '/input/';
+
+
+
+
+
+
+
+http://hadooptutorial.info/processing-logs-in-hive/
+
+Important points on Regex 
+==========================
+In deserialization stage of RegexSerDe, if a row does not match the regex, 
+then all columns in the row will be NULL. 
+If a row matches the regex but has less than expected groups, the missing groups will be NULL. 
+If a row matches the regex but has more than expected groups, the additional groups are just ignored
+
+Create Table for hvc or users
+==============================
+CREATE EXTERNAL TABLE user
+(
+userid STRING,
+username STRING
+)
+
+ROW FORMAT DELIMITED 
+FIELDS TERMINATED BY ","
+LOCATION '/loginsight/hive/user';
+
+Load The  Data for weblogs and hvc
+===================================
+LOAD DATA LOCAL INPATH '/home/user/Desktop/testdata/logs/*' OVERWRITE INTO TABLE weblogs;
+LOAD DATA LOCAL INPATH '/home/user/Desktop/testdata/hvc/*' OVERWRITE INTO TABLE user;
+
+LOAD DATA LOCAL INPATH '/home/user/Desktop/testdata/monthlylogs_archived/app1_01_2014_log.txt' OVERWRITE INTO TABLE weblogs;
+LOAD DATA LOCAL INPATH '/home/user/Desktop/testdata/monthlylogs_archived/app1_02_2014_log.txt' INTO TABLE weblogs;
+
+ 
+
+
+

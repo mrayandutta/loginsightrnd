@@ -1,0 +1,84 @@
+Place Data Into Local Directory
+===============================
+Place loginsight/testdata folder to Desktop
+  
+Create HDFS input data directory
+=================================
+bin/hadoop dfs -mkdir hdfs:/loginsight/
+
+Download PiggyBank
+=================== 
+wget http://central.maven.org/maven2/org/apache/pig/piggybank/0.14.0/piggybank-0.14.0.jar
+  
+Load data into HDFS
+===================
+hdfs dfs -mkdir pigexternallib 
+bin/hadoop dfs -copyFromLocal /home/user/Desktop/testdata/* hdfs:/loginsight/
+bin/hadoop dfs -copyFromLocal /home/user/piggybank/* hdfs:/loginsight/
+
+REGISTER hdfs:/pigexternallib/piggybank-0.14.0.jar;
+REGISTER hdfs:/loginsight/joda-time-2.4.jar;
+
+
+DEFINE DATE_TIME org.apache.pig.piggybank.evaluation.datetime.DATE_TIME();
+DEFINE CUSTOM_DATE_TIME org.apache.pig.piggybank.evaluation.datetime.DATE_TIME('-07:00', 'dd-MM-yyyy:HH:mm:ss');
+
+
+Start Pig
+============
+pig -x mapreduce
+
+-- load the weblogs into a sequence of one element tuples
+rawweblogs = LOAD '/loginsight/*' USING TextLoader AS (line:chararray);
+logs = LIMIT rawweblogs 5;
+DUMP logs;
+logcount = FOREACH (GROUP rawweblogs ALL) GENERATE COUNT(rawweblogs);
+user = LOAD '/loginsight/hvc/*' USING PigStorage(',') AS (userid:chararray,username:chararray);
+
+-- for each weblog string convert the weblong string into a
+-- structure with named fields
+weblogs = FOREACH rawweblogs GENERATE  FLATTEN(REGEX_EXTRACT_ALL(line, '(\\d{2}-\\d{2}-\\d{4}:\\d{2}:\\d{2}:\\d{2})\\s(\\w+)\\s(\\w+)\\s(\\w+)\\s(\\d{3}.\\d{3}.\\d{2}.\\d{2})')) AS (ts:chararray,user:chararray,reportname:chararray,reportexecutiontime:chararray,ip:chararray);
+logs = LIMIT weblogs 5;
+f = FILTER weblogs BY not IsEmpty(weblogs); 
+weblogs_no_blanks = FILTER weblogs BY by ts is not null;
+hvcweblogs = JOIN weblogs by (user) ,userlogs by (userid);
+
+
+testlogs =  FOREACH weblogs GENERATE DATE_TIME(ts, 'dd:MM:yyyy:HH:mm:ss Z','UTC') as datetime;
+STORE hvcweblogs INTO '/pigoutput/result.txt' USING PigStorage(',');
+
+DEFINE FORMAT_DT org.apache.pig.piggybank.evaluation.datetime.FORMAT_DT();
+DEFINE UPPER org.apache.pig.piggybank.evaluation.string.UPPER();
+DEFINE LOWER org.apache.pig.piggybank.evaluation.string.LOWER();
+
+
+filtered_records = FILTER logs_base BY user == 'U3';
+DUMP filtered_records;
+
+grouped_records = GROUP filtered_records BY user;
+DUMP grouped_records;
+
+log_count = FOREACH grouped_records GENERATE group, COUNT(filtered_records);
+dump log_count;
+
+Good one 
+http://it.toolbox.com/blogs/managing-infosec/working-with-hadoop-pig-and-elastic-map-reduce-in-aws-54947
+http://pig.apache.org/docs/r0.9.1/cmds.html
+http://www.devx.com/Java/Article/48063/0/page/2
+https://cwiki.apache.org/confluence/display/PIG/PiggyBank
+http://software.danielwatrous.com/analyze-tomcat-logs-using-pig-hadoop/
+https://gist.github.com/griggheo/1780912
+
+http://www.rittmanmead.com/2015/04/so-whats-the-real-point-of-odi12c-for-big-data-generating-pig-and-spark-mappings/
+
+                                       
+ 
+DEFINE EXTRACT org.apache.pig.piggybank.evaluation.string.EXTRACT();                    
+ 
+DEFINE CustomFormatToISO org.apache.pig.piggybank.evaluation.datetime.convert.CustomFormatToISO();
+DEFINE ISOToUnix org.apache.pig.piggybank.evaluation.datetime.convert.ISOToUnix();
+ 
+DEFINE DATE_TIME org.apache.pig.piggybank.evaluation.datetime.DATE_TIME();
+DEFINE FORMAT_DT org.apache.pig.piggybank.evaluation.datetime.FORMAT_DT();
+ 
+DEFINE FORMAT org.apache.pig.piggybank.evaluation.string.FORMAT();
